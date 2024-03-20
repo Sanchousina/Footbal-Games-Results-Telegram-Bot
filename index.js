@@ -9,6 +9,9 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
 const leagues = [];
+const state = {};
+
+getAllLeagues().then((data) => handleLeagues(data));
 
 async function getAllLeagues() {
   const response = await axios.get(
@@ -19,8 +22,7 @@ async function getAllLeagues() {
       },
     },
   );
-  const leagues = response.data.response.slice(0, 10);
-  return leagues;
+  return response.data.response.slice(0, 10);
 }
 
 function handleLeagues(data) {
@@ -33,20 +35,36 @@ function handleLeagues(data) {
         el.country.name === 'World'
           ? emoji.emojify(':earth_americas:')
           : getFlagEmoji(el.country.code),
+      firstYear: el.seasons[0].year,
+      lastYear: el.seasons[el.seasons.length - 1].year,
     });
   });
 }
 
-async function sendLeaguesButtons(chatId) {
-  handleLeagues(await getAllLeagues());
+function sendLeaguesButtons(chatId) {
   const inline_keyboard = leagues.map((el) => [
     {
       text: `${el.name}, ${el.countryFlag}`,
-      callback_data: `league_${el.id}`,
+      callback_data: `league_${el.id}_${el.name}`,
     },
   ]);
 
   bot.sendMessage(chatId, 'Для того, щоб знайти матч, оберіть спершу лігу', {
+    reply_markup: {
+      inline_keyboard,
+    },
+  });
+}
+
+function sendSeasonButtons(chatId) {
+  const league = leagues.find((el) => el.id == state[chatId].league);
+
+  const inline_keyboard = [];
+  for (let i = league.firstYear; i <= league.lastYear; i++) {
+    inline_keyboard.push([{ text: i, callback_data: `season_${i}` }]);
+  }
+
+  bot.sendMessage(chatId, 'Тепер оберіть сезон', {
     reply_markup: {
       inline_keyboard,
     },
@@ -63,17 +81,24 @@ bot.onText(/\/start/, (msg) => {
 });
 
 bot.on('callback_query', (query) => {
-  // console.log('From callback query: ');
-  // console.log(query);
-
   const chatId = query.message.chat.id;
-  const data = query.data;
-  const league = data.split('_')[1];
+  const data = query.data.split('_');
 
-  bot.sendMessage(chatId, `Ви обрали лігу: ${league}`);
+  if (data[0] === 'league') {
+    const leagueId = data[1];
+    const leagueName = data[2];
+
+    state[chatId] = { league: leagueId };
+
+    bot.sendMessage(chatId, `Ви обрали лігу: ${leagueName}`);
+    sendSeasonButtons(chatId);
+  } else if (data[0] === 'season') {
+    const season = data[1];
+
+    bot.sendMessage(chatId, `Ви обрали сезон: ${season}`);
+  }
 });
 
 bot.on('message', (msg) => {
-  // console.log(msg);
   bot.sendMessage(msg.chat.id, msg.text);
 });
