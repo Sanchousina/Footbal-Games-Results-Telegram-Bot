@@ -6,6 +6,8 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 
 const bot = new TelegramBot(token, { polling: true });
 
+const leagues = [];
+
 async function getAllLeagues() {
   const response = await axios.get(
     'https://v3.football.api-sports.io/leagues',
@@ -16,18 +18,35 @@ async function getAllLeagues() {
     },
   );
   const leagues = response.data.response.slice(0, 10);
+  return leagues;
+}
+
+function handleLeagues(data) {
+  console.log(data);
+  data.forEach((el) => {
+    leagues.push({
+      id: el.league.id,
+      name: el.league.name,
+      country: el.country.name,
+    });
+  });
   console.log(leagues);
 }
 
 async function sendLeaguesButtons(chatId) {
-  await getAllLeagues();
+  handleLeagues(await getAllLeagues());
+  const inline_keyboard = leagues.map((el) => [
+    { text: `${el.name}, ${el.country}`, callback_data: `league_${el.id}` },
+  ]);
+
   bot.sendMessage(chatId, 'Для того, щоб знайти матч, оберіть спершу лігу', {
     reply_markup: {
-      inline_keyboard: [
-        [{ text: 'League 1', callback_data: 'league_League 1' }],
-        [{ text: 'League 2', callback_data: 'league_League 2' }],
-        [{ text: 'League 3', callback_data: 'league_League 3' }],
-      ],
+      // inline_keyboard: [
+      //   [{ text: 'League 1', callback_data: 'league_League 1' }],
+      //   [{ text: 'League 2', callback_data: 'league_League 2' }],
+      //   [{ text: 'League 3', callback_data: 'league_League 3' }],
+      // ],
+      inline_keyboard,
     },
   });
 }
