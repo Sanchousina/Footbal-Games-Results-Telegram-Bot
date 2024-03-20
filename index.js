@@ -90,14 +90,12 @@ function createInlineKeyboardTeamsArray(teams, columns) {
   for (let i = 0; i < teams.length; i = i + columns) {
     let column = [];
     for (let j = 0; j < columns; j++) {
-      column.push(
-        i + j < teams.length
-          ? {
-              text: teams[i + j].team.name,
-              callback_data: `team1_${teams[i + j].team.id}`,
-            }
-          : null,
-      );
+      i + j < teams.length &&
+        column.push({
+          text: teams[i + j].team.name,
+          callback_data: `team1_${teams[i + j].team.id}`,
+        });
+      console.log(column);
     }
     result.push(column);
   }
@@ -109,10 +107,10 @@ function createCustomInlineKeyboard(teams) {
   const teamsNumber = teams.length;
 
   if (teamsNumber > 10) {
-    if (teamsNumber % 5 == 0) {
-      inline_keyboard = createInlineKeyboardTeamsArray(teams, 5);
-    } else if (teamsNumber % 4 == 0) {
+    if (teamsNumber % 5 == 0 || teamsNumber % 4 == 0) {
       inline_keyboard = createInlineKeyboardTeamsArray(teams, 4);
+      // } else if (teamsNumber % 4 == 0) {
+      //   inline_keyboard = createInlineKeyboardTeamsArray(teams, 4);
     } else if (teamsNumber % 3 == 0) {
       inline_keyboard = createInlineKeyboardTeamsArray(teams, 3);
     } else {
