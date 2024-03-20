@@ -9,6 +9,7 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
 const leagues = [];
+let teams = [];
 const state = {};
 
 getAllLeagues().then((data) => handleLeagues(data));
@@ -23,6 +24,19 @@ async function getAllLeagues() {
     },
   );
   return response.data.response.slice(0, 10);
+}
+
+async function getAllTeams(league, season) {
+  const response = await axios.get('https://v3.football.api-sports.io/teams', {
+    params: {
+      league,
+      season,
+    },
+    headers: {
+      'x-apisports-key': process.env.API_SPORTS_API_KEY,
+    },
+  });
+  return response.data.response;
 }
 
 function handleLeagues(data) {
@@ -71,6 +85,60 @@ function sendSeasonButtons(chatId) {
   });
 }
 
+function createInlineKeyboardTeamsArray(teams, columns) {
+  let result = [];
+  for (let i = 0; i < teams.length; i = i + columns) {
+    let column = [];
+    for (let j = 0; j < columns; j++) {
+      column.push(
+        i + j < teams.length
+          ? {
+              text: teams[i + j].team.name,
+              callback_data: `team1_${teams[i + j].team.id}`,
+            }
+          : null,
+      );
+    }
+    result.push(column);
+  }
+  return result;
+}
+
+function createCustomInlineKeyboard(teams) {
+  let inline_keyboard = [];
+  const teamsNumber = teams.length;
+
+  if (teamsNumber > 10) {
+    if (teamsNumber % 5 == 0) {
+      inline_keyboard = createInlineKeyboardTeamsArray(teams, 5);
+    } else if (teamsNumber % 4 == 0) {
+      inline_keyboard = createInlineKeyboardTeamsArray(teams, 4);
+    } else if (teamsNumber % 3 == 0) {
+      inline_keyboard = createInlineKeyboardTeamsArray(teams, 3);
+    } else {
+      if (teamsNumber < 40) {
+        inline_keyboard = createInlineKeyboardTeamsArray(teams, 3);
+      } else {
+        inline_keyboard = createInlineKeyboardTeamsArray(teams, 5);
+      }
+    }
+  } else {
+    inline_keyboard = teams.map((el) => [
+      { text: el.team.name, callback_data: `team1_${el.team.id}` },
+    ]);
+  }
+  return inline_keyboard;
+}
+
+function sendTeamsButton(chatId, teams) {
+  const inline_keyboard = createCustomInlineKeyboard(teams);
+  bot.sendMessage(chatId, 'Оберіть першй команду', {
+    reply_markup: {
+      inline_keyboard,
+    },
+  });
+}
+
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   bot.sendMessage(
@@ -80,7 +148,7 @@ bot.onText(/\/start/, (msg) => {
   sendLeaguesButtons(chatId);
 });
 
-bot.on('callback_query', (query) => {
+bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const data = query.data.split('_');
 
@@ -94,8 +162,11 @@ bot.on('callback_query', (query) => {
     sendSeasonButtons(chatId);
   } else if (data[0] === 'season') {
     const season = data[1];
+    state[chatId].season = season;
 
     bot.sendMessage(chatId, `Ви обрали сезон: ${season}`);
+    teams = await getAllTeams(state[chatId].league, season);
+    sendTeamsButton(chatId, teams);
   }
 });
 
