@@ -1,6 +1,8 @@
 require('dotenv').config();
 const axios = require('axios');
+const emoji = require('node-emoji');
 const TelegramBot = require('node-telegram-bot-api');
+const getFlagEmoji = require('./helpers/getFlagEmoji.js');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -22,30 +24,30 @@ async function getAllLeagues() {
 }
 
 function handleLeagues(data) {
-  console.log(data);
   data.forEach((el) => {
     leagues.push({
       id: el.league.id,
       name: el.league.name,
       country: el.country.name,
+      countryFlag:
+        el.country.name === 'World'
+          ? emoji.emojify(':earth_americas:')
+          : getFlagEmoji(el.country.code),
     });
   });
-  console.log(leagues);
 }
 
 async function sendLeaguesButtons(chatId) {
   handleLeagues(await getAllLeagues());
   const inline_keyboard = leagues.map((el) => [
-    { text: `${el.name}, ${el.country}`, callback_data: `league_${el.id}` },
+    {
+      text: `${el.name}, ${el.countryFlag}`,
+      callback_data: `league_${el.id}`,
+    },
   ]);
 
   bot.sendMessage(chatId, 'Для того, щоб знайти матч, оберіть спершу лігу', {
     reply_markup: {
-      // inline_keyboard: [
-      //   [{ text: 'League 1', callback_data: 'league_League 1' }],
-      //   [{ text: 'League 2', callback_data: 'league_League 2' }],
-      //   [{ text: 'League 3', callback_data: 'league_League 3' }],
-      // ],
       inline_keyboard,
     },
   });
