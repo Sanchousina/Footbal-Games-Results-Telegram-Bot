@@ -198,6 +198,47 @@ bot.on('callback_query', async (query) => {
   }
 });
 
-bot.on('message', (msg) => {
-  bot.sendMessage(msg.chat.id, msg.text);
+async function findMatch(team1Id, team2Id, season, league) {
+  const response = await axios.get(
+    'https://v3.football.api-sports.io/fixtures/headtohead',
+    {
+      params: {
+        h2h: `${team1Id}-${team2Id}`,
+        season,
+        league,
+      },
+      headers: {
+        'x-apisports-key': process.env.API_SPORTS_API_KEY,
+      },
+    },
+  );
+  console.log(response.data);
+  return response.data.response;
+}
+
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  if (msg.text === 'Знайти матч!') {
+    if (!state[chatId]) {
+      bot.sendMessage(
+        chatId,
+        'Для того, щоб знайти матч, потрібно обрати лігу, сезон і команди.\nСкористайтесь командою /start',
+      );
+    } else {
+      const matchResults = await findMatch(
+        state[chatId].team1,
+        state[chatId].team2,
+        state[chatId].season,
+        state[chatId].leagueId,
+      );
+
+      if (matchResults.length === 0) {
+        bot.sendMessage(
+          chatId,
+          'На жаль, за даними параметрами матчу не знайдено\nСпробуйте інші параметри за командою /start',
+        );
+      }
+      console.log(matchResults);
+    }
+  }
 });
