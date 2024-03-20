@@ -85,7 +85,7 @@ function sendSeasonButtons(chatId) {
   });
 }
 
-function createInlineKeyboardTeamsArray(teams, columns) {
+function createInlineKeyboardTeamsArray(teams, columns, teamOrder) {
   let result = [];
   for (let i = 0; i < teams.length; i = i + columns) {
     let column = [];
@@ -93,44 +93,48 @@ function createInlineKeyboardTeamsArray(teams, columns) {
       i + j < teams.length &&
         column.push({
           text: teams[i + j].team.name,
-          callback_data: `team1_${teams[i + j].team.id}`,
+          callback_data: `team${teamOrder}_${teams[i + j].team.id}_${
+            teams[i + j].team.name
+          }`,
         });
-      console.log(column);
     }
     result.push(column);
   }
   return result;
 }
 
-function createCustomInlineKeyboard(teams) {
+function createCustomInlineKeyboard(teams, teamOrder) {
   let inline_keyboard = [];
   const teamsNumber = teams.length;
 
   if (teamsNumber > 10) {
     if (teamsNumber % 5 == 0 || teamsNumber % 4 == 0) {
-      inline_keyboard = createInlineKeyboardTeamsArray(teams, 4);
+      inline_keyboard = createInlineKeyboardTeamsArray(teams, 4, teamOrder);
       // } else if (teamsNumber % 4 == 0) {
       //   inline_keyboard = createInlineKeyboardTeamsArray(teams, 4);
     } else if (teamsNumber % 3 == 0) {
-      inline_keyboard = createInlineKeyboardTeamsArray(teams, 3);
+      inline_keyboard = createInlineKeyboardTeamsArray(teams, 3, teamOrder);
     } else {
       if (teamsNumber < 40) {
-        inline_keyboard = createInlineKeyboardTeamsArray(teams, 3);
+        inline_keyboard = createInlineKeyboardTeamsArray(teams, 3, teamOrder);
       } else {
-        inline_keyboard = createInlineKeyboardTeamsArray(teams, 5);
+        inline_keyboard = createInlineKeyboardTeamsArray(teams, 5, teamOrder);
       }
     }
   } else {
     inline_keyboard = teams.map((el) => [
-      { text: el.team.name, callback_data: `team1_${el.team.id}` },
+      {
+        text: el.team.name,
+        callback_data: `team${teamOrder}_${el.team.id}_${el.team.name}`,
+      },
     ]);
   }
   return inline_keyboard;
 }
 
-function sendTeamsButton(chatId, teams) {
-  const inline_keyboard = createCustomInlineKeyboard(teams);
-  bot.sendMessage(chatId, 'Оберіть першй команду', {
+function sendTeamsButton(chatId, teams, messageText, teamOrder) {
+  const inline_keyboard = createCustomInlineKeyboard(teams, teamOrder);
+  bot.sendMessage(chatId, messageText, {
     reply_markup: {
       inline_keyboard,
     },
@@ -155,6 +159,7 @@ bot.on('callback_query', async (query) => {
     const leagueName = data[2];
 
     state[chatId] = { league: leagueId };
+    state[chatId].leagueName = leagueName;
 
     bot.sendMessage(chatId, `Ви обрали лігу: ${leagueName}`);
     sendSeasonButtons(chatId);
@@ -164,7 +169,32 @@ bot.on('callback_query', async (query) => {
 
     bot.sendMessage(chatId, `Ви обрали сезон: ${season}`);
     teams = await getAllTeams(state[chatId].league, season);
-    sendTeamsButton(chatId, teams);
+    sendTeamsButton(chatId, teams, 'Оберіть першу команду', 1);
+  } else if (data[0] === 'team1') {
+    const team1Id = data[1];
+    const team1Name = data[2];
+    state[chatId].team1 = team1Id;
+    state[chatId].team1Name = team1Name;
+
+    // bot.sendMessage(chatId, `Ви обрали першу команду: {}`);
+    sendTeamsButton(chatId, teams, 'Оберіть другу команду', 2);
+  } else if (data[0] === 'team2') {
+    const team2Id = data[1];
+    const team2Name = data[2];
+    state[chatId].team2 = team2Id;
+    state[chatId].team2Name = team2Name;
+
+    bot.sendMessage(
+      chatId,
+      `Ви обрали: \nЛіга: ${state[chatId].leagueName}\nСезон: ${state[chatId].season}\nПерша команда: ${state[chatId].team1Name}\nДруга команда: ${state[chatId].team2Name}\n\nЗнайти матч?`,
+      {
+        reply_markup: {
+          keyboard: [[{ text: 'Знайти матч!' }]],
+          resize_keyboard: true,
+          one_time_keyboard: true,
+        },
+      },
+    );
   }
 });
 
